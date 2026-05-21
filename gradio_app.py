@@ -58,7 +58,7 @@ with gr.Blocks(title="Drone Object Detection") as demo:
             with gr.Column():
                 video_input = gr.Video(label="Upload Drone Video")
                 conf_slider = gr.Slider(0.1, 0.9, value=0.25, step=0.05, label="Confidence Threshold")
-                max_frames_slider = gr.Slider(60, 300, value=120, step=30, label="Max Frames (seconds of video)")
+                max_frames_slider = gr.Slider(60, 300, value=120, step=30, label="Max Duration (seconds)")
                 run_btn = gr.Button("Run Detection", variant="primary")
 
             with gr.Column():

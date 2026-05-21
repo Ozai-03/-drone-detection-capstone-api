@@ -54,8 +54,8 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
     if annotate:
         out_fd, out_path = tempfile.mkstemp(suffix="_annotated.mp4")
         os.close(out_fd)
-        # 2 fps so each annotated frame is visible for ~0.5 s in the player
-        writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), 2.0, (width, height))
+        output_fps = min(fps, 30.0)
+        writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), output_fps, (width, height))
 
     frames_result = []
     # seen_ids counts unique tracked objects per class across the whole video
@@ -72,9 +72,15 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
         if not ret:
             break
 
-        # Only collect and report results at the 1-per-second sampling points
+        # Run tracker on every frame to maintain Kalman filter continuity
+        results = model.track(frame, conf=conf, tracker="bytetrack.yaml", verbose=False, persist=True)
+
+        # Write every annotated frame so output video plays at source FPS
+        if writer is not None:
+            writer.write(results[0].plot())
+
+        # Collect results only at 1-second sample points (keeps API response size manageable)
         if frame_idx % frame_interval == 0:
-            results = model.track(frame, conf=conf, verbose=False, persist=True)
             timestamp_ms = int((frame_idx / fps) * 1000)
             detections = []
 
@@ -97,10 +103,6 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
                     seen_ids.setdefault(cls_name, set()).add(track_id)
                 confidence_sum += conf_val
                 detection_count += 1
-
-            if writer is not None:
-                # plot() returns a BGR numpy array with boxes and labels already drawn
-                writer.write(results[0].plot())
 
             frames_result.append({
                 "frame_id": sampled,
