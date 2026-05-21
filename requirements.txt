@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+ultralytics
+opencv-python-headless
+python-multipart
+huggingface_hub
+Pillow
+numpy
+gradio
