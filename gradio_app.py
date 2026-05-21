@@ -5,7 +5,7 @@ from inference import run_inference
 
 def detect(video_path, conf, max_frames, progress=gr.Progress()):
     if video_path is None:
-        return [["No video uploaded", ""]], "Upload a video and click Run Detection.", ""
+        return [["No video uploaded", ""]], "Upload a video and click Run Detection.", "", None
 
     max_frames_int = int(max_frames)
     progress(0, desc="Starting inference...")
@@ -14,9 +14,9 @@ def detect(video_path, conf, max_frames, progress=gr.Progress()):
         progress(sampled / total, desc=f"Processing frame {sampled} of {total}...")
 
     try:
-        result = run_inference(video_path, conf=float(conf), max_frames=max_frames_int, progress_callback=on_frame)
+        result = run_inference(video_path, conf=float(conf), max_frames=max_frames_int, progress_callback=on_frame, annotate=True)
     except Exception as e:
-        return [["Error", str(e)]], f"Inference failed: {e}", ""
+        return [["Error", str(e)]], f"Inference failed: {e}", "", None
 
     summary = result.get("summary", {})
     if not summary:
@@ -30,8 +30,9 @@ def detect(video_path, conf, max_frames, progress=gr.Progress()):
 
     stats = f"Total objects: {total_objects}  |  Avg confidence: {avg_conf:.2%}  |  Inference time: {inf_time:.2f}s"
     frames_note = f"Frames processed: {result['total_frames_processed']}"
+    out_video = result.get("output_video_path")
 
-    return table, stats, frames_note
+    return table, stats, frames_note, out_video
 
 
 ABOUT_TEXT = """
@@ -68,11 +69,12 @@ with gr.Blocks(title="Drone Object Detection") as demo:
                 )
                 stats_text = gr.Textbox(label="Stats", interactive=False)
                 frames_text = gr.Textbox(label="Frames", interactive=False)
+                output_video = gr.Video(label="Annotated Output", interactive=False)
 
         run_btn.click(
             fn=detect,
             inputs=[video_input, conf_slider, max_frames_slider],
-            outputs=[output_table, stats_text, frames_text],
+            outputs=[output_table, stats_text, frames_text, output_video],
         )
 
     with gr.Tab("About"):

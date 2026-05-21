@@ -31,7 +31,9 @@ except Exception as e:
     print(f"[WARNING] Model failed to load at startup: {e}")
 
 
-def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, progress_callback=None) -> dict:
+def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, progress_callback=None, annotate: bool = False) -> dict:
+    # NOTE: uses model() (stateless detection). If model.track() is added later,
+    # clear _model.predictor.trackers between calls to prevent state leaking across requests.
     model = load_model()
     start_time = time.time()
 
@@ -40,7 +42,22 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
         raise ValueError("Unable to open video file")
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    frame_interval = int(fps)  # sample 1 frame per second
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    if width == 0 or height == 0:
+        cap.release()
+        raise ValueError("Unable to read video dimensions — file may not be a valid video")
+
+    # int(fps) can be 0 for sub-1fps or malformed files
+    frame_interval = max(1, int(fps))
+
+    out_path = None
+    writer = None
+    if annotate:
+        out_fd, out_path = tempfile.mkstemp(suffix="_annotated.mp4")
+        os.close(out_fd)
+        # 2 fps so each annotated frame is visible for ~0.5 s in the player
+        writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), 2.0, (width, height))
 
     frames_result = []
     summary: dict[str, int] = {}
@@ -75,6 +92,10 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
                 confidence_sum += conf_val
                 detection_count += 1
 
+            if writer is not None:
+                # plot() returns a BGR numpy array with boxes and labels already drawn
+                writer.write(results[0].plot())
+
             frames_result.append({
                 "frame_id": sampled,
                 "timestamp_ms": timestamp_ms,
@@ -88,6 +109,8 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
         frame_idx += 1
 
     cap.release()
+    if writer is not None:
+        writer.release()
 
     elapsed_ms = int((time.time() - start_time) * 1000)
     avg_confidence = round(confidence_sum / detection_count, 4) if detection_count > 0 else 0.0
@@ -99,4 +122,5 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
         "frames": frames_result,
         "summary": summary,
         "avg_confidence": avg_confidence,
+        "output_video_path": out_path,
     }
