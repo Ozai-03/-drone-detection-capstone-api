@@ -58,27 +58,32 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
         writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), 2.0, (width, height))
 
     frames_result = []
-    summary: dict[str, int] = {}
+    # seen_ids counts unique tracked objects per class across the whole video
+    seen_ids: dict[str, set] = {}
     confidence_sum = 0.0
     detection_count = 0
     frame_idx = 0
     sampled = 0
+    # hard cap: process at most max_frames seconds of video
+    max_total_frames = max_frames * frame_interval
 
-    while sampled < max_frames:
+    while frame_idx < max_total_frames:
         ret, frame = cap.read()
         if not ret:
             break
 
+        # Run tracker on every frame so IDs stay consistent across the whole clip
+        results = model.track(frame, conf=conf, verbose=False, persist=True)
+
+        # Only collect and report results at the 1-per-second sampling points
         if frame_idx % frame_interval == 0:
             timestamp_ms = int((frame_idx / fps) * 1000)
-            results = model(frame, conf=conf, verbose=False)
             detections = []
 
             for box in results[0].boxes:
                 cls_id = int(box.cls[0])
                 cls_name = model.names[cls_id]
                 conf_val = float(box.conf[0])
-                # box.id is None with model() — needs model.track() fed a continuous stream
                 track_id = int(box.id[0]) if box.id is not None else "N/A"
                 x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
                 print(f"[TRACK] frame={sampled} ts={timestamp_ms}ms | id={track_id} cls={cls_name} conf={conf_val:.2f}")
@@ -87,9 +92,11 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
                     "class": cls_name,
                     "confidence": round(conf_val, 4),
                     "bbox": [x1, y1, x2, y2],
+                    "track_id": track_id,
                 })
 
-                summary[cls_name] = summary.get(cls_name, 0) + 1
+                if track_id != "N/A":
+                    seen_ids.setdefault(cls_name, set()).add(track_id)
                 confidence_sum += conf_val
                 detection_count += 1
 
@@ -112,6 +119,14 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
     cap.release()
     if writer is not None:
         writer.release()
+
+    # Reset tracker so IDs from this video don't carry into the next request
+    if hasattr(model, "predictor") and model.predictor is not None:
+        if hasattr(model.predictor, "trackers") and model.predictor.trackers:
+            model.predictor.trackers[0].reset()
+
+    # Count unique objects per class, fall back to detection count if tracker had no IDs
+    summary = {cls: len(ids) for cls, ids in seen_ids.items()} if seen_ids else {}
 
     elapsed_ms = int((time.time() - start_time) * 1000)
     avg_confidence = round(confidence_sum / detection_count, 4) if detection_count > 0 else 0.0
