@@ -80,7 +80,10 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
                 cls_id = int(box.cls[0])
                 cls_name = model.names[cls_id]
                 conf_val = float(box.conf[0])
+                # box.id is None when using model() — will be an int once model.track() is used
+                track_id = int(box.id[0]) if box.id is not None else "N/A"
                 x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
+                print(f"[TRACK] frame={sampled} ts={timestamp_ms}ms | id={track_id} cls={cls_name} conf={conf_val:.2f}")
 
                 detections.append({
                     "class": cls_name,
