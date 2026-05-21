@@ -50,39 +50,40 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120) ->
     sampled = 0
 
     while sampled < max_frames:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         ret, frame = cap.read()
         if not ret:
             break
 
-        timestamp_ms = int((frame_idx / fps) * 1000)
-        results = model(frame, conf=conf, verbose=False)
-        detections = []
+        if frame_idx % frame_interval == 0:
+            timestamp_ms = int((frame_idx / fps) * 1000)
+            results = model(frame, conf=conf, verbose=False)
+            detections = []
 
-        for box in results[0].boxes:
-            cls_id = int(box.cls[0])
-            cls_name = model.names[cls_id]
-            conf_val = float(box.conf[0])
-            x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
+            for box in results[0].boxes:
+                cls_id = int(box.cls[0])
+                cls_name = model.names[cls_id]
+                conf_val = float(box.conf[0])
+                x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
 
-            detections.append({
-                "class": cls_name,
-                "confidence": round(conf_val, 4),
-                "bbox": [x1, y1, x2, y2],
+                detections.append({
+                    "class": cls_name,
+                    "confidence": round(conf_val, 4),
+                    "bbox": [x1, y1, x2, y2],
+                })
+
+                summary[cls_name] = summary.get(cls_name, 0) + 1
+                confidence_sum += conf_val
+                detection_count += 1
+
+            frames_result.append({
+                "frame_id": sampled,
+                "timestamp_ms": timestamp_ms,
+                "detections": detections,
             })
 
-            summary[cls_name] = summary.get(cls_name, 0) + 1
-            confidence_sum += conf_val
-            detection_count += 1
+            sampled += 1
 
-        frames_result.append({
-            "frame_id": sampled,
-            "timestamp_ms": timestamp_ms,
-            "detections": detections,
-        })
-
-        frame_idx += frame_interval
-        sampled += 1
+        frame_idx += 1
 
     cap.release()
 

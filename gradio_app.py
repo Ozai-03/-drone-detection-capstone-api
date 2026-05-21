@@ -1,5 +1,3 @@
-import threading
-import uvicorn
 import gradio as gr
 
 from inference import run_inference
@@ -53,7 +51,7 @@ with gr.Blocks(title="Drone Object Detection") as demo:
             with gr.Column():
                 video_input = gr.Video(label="Upload Drone Video")
                 conf_slider = gr.Slider(0.1, 0.9, value=0.25, step=0.05, label="Confidence Threshold")
-                max_frames_slider = gr.Slider(10, 120, value=60, step=10, label="Max Frames")
+                max_frames_slider = gr.Slider(5, 60, value=30, step=5, label="Max Frames")
                 run_btn = gr.Button("Run Detection", variant="primary")
 
             with gr.Column():
@@ -73,14 +71,3 @@ with gr.Blocks(title="Drone Object Detection") as demo:
 
     with gr.Tab("About"):
         gr.Markdown(ABOUT_TEXT)
-
-
-def _run_fastapi():
-    import app as fastapi_app
-    uvicorn.run(fastapi_app.app, host="0.0.0.0", port=7860, log_level="warning")
-
-
-if __name__ == "__main__":
-    api_thread = threading.Thread(target=_run_fastapi, daemon=True)
-    api_thread.start()
-    demo.launch(server_name="0.0.0.0", server_port=7861)

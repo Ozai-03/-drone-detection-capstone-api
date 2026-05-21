@@ -5,10 +5,12 @@ import tempfile
 import traceback
 from datetime import datetime
 
-from fastapi import FastAPI, UploadFile, File, Query, HTTPException
+from fastapi import FastAPI, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+import gradio as gr
+from gradio_app import demo as gradio_demo
 from inference import run_inference, MODEL_VERSION
 
 START_TIME = time.time()
@@ -33,6 +35,10 @@ def _append_log(entry: dict):
         print(f"[WARNING] Could not write to log: {e}")
 
 
+# API routes must be registered before the Gradio mount so Starlette
+# matches them first — Mount("/") is a catch-all that would otherwise
+# intercept /health and /predict.
+
 @app.post("/predict")
 async def predict(
     video: UploadFile = File(...),
@@ -41,7 +47,6 @@ async def predict(
 ):
     tmp_path = None
     status = "success"
-    result = {}
     try:
         suffix = os.path.splitext(video.filename or "upload.mp4")[1] or ".mp4"
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
@@ -125,3 +130,8 @@ def metrics():
         "avg_inference_time_ms": avg_inference,
         "avg_confidence": avg_conf,
     }
+
+
+# Mount Gradio at "/" AFTER all API routes are registered.
+# Starlette matches explicit APIRoutes before Mount catch-alls.
+gr.mount_gradio_app(app, gradio_demo, path="/")
