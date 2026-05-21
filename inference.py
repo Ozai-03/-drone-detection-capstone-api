@@ -72,11 +72,9 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
         if not ret:
             break
 
-        # Run tracker on every frame so IDs stay consistent across the whole clip
-        results = model.track(frame, conf=conf, verbose=False, persist=True)
-
         # Only collect and report results at the 1-per-second sampling points
         if frame_idx % frame_interval == 0:
+            results = model.track(frame, conf=conf, verbose=False, persist=True)
             timestamp_ms = int((frame_idx / fps) * 1000)
             detections = []
 
