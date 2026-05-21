@@ -3,12 +3,18 @@ import gradio as gr
 from inference import run_inference
 
 
-def detect(video_path, conf, max_frames):
+def detect(video_path, conf, max_frames, progress=gr.Progress()):
     if video_path is None:
         return [["No video uploaded", ""]], "Upload a video and click Run Detection.", ""
 
+    max_frames_int = int(max_frames)
+    progress(0, desc="Starting inference...")
+
+    def on_frame(sampled, total):
+        progress(sampled / total, desc=f"Processing frame {sampled} of {total}...")
+
     try:
-        result = run_inference(video_path, conf=float(conf), max_frames=int(max_frames))
+        result = run_inference(video_path, conf=float(conf), max_frames=max_frames_int, progress_callback=on_frame)
     except Exception as e:
         return [["Error", str(e)]], f"Inference failed: {e}", ""
 

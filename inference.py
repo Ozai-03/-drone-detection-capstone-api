@@ -31,7 +31,7 @@ except Exception as e:
     print(f"[WARNING] Model failed to load at startup: {e}")
 
 
-def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120) -> dict:
+def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, progress_callback=None) -> dict:
     model = load_model()
     start_time = time.time()
 
@@ -82,6 +82,8 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120) ->
             })
 
             sampled += 1
+            if progress_callback:
+                progress_callback(sampled, max_frames)
 
         frame_idx += 1
 
