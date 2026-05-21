@@ -58,8 +58,7 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
         writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), 2.0, (width, height))
 
     frames_result = []
-    # seen_ids tracks unique track IDs per class so summary counts objects, not detections
-    seen_ids: dict[str, set] = {}
+    summary: dict[str, int] = {}
     confidence_sum = 0.0
     detection_count = 0
     frame_idx = 0
@@ -72,14 +71,14 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
 
         if frame_idx % frame_interval == 0:
             timestamp_ms = int((frame_idx / fps) * 1000)
-            # persist=True tells the tracker to maintain IDs across frames
-            results = model.track(frame, conf=conf, verbose=False, persist=True)
+            results = model(frame, conf=conf, verbose=False)
             detections = []
 
             for box in results[0].boxes:
                 cls_id = int(box.cls[0])
                 cls_name = model.names[cls_id]
                 conf_val = float(box.conf[0])
+                # box.id is None with model() — needs model.track() fed a continuous stream
                 track_id = int(box.id[0]) if box.id is not None else "N/A"
                 x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
                 print(f"[TRACK] frame={sampled} ts={timestamp_ms}ms | id={track_id} cls={cls_name} conf={conf_val:.2f}")
@@ -88,11 +87,9 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
                     "class": cls_name,
                     "confidence": round(conf_val, 4),
                     "bbox": [x1, y1, x2, y2],
-                    "track_id": track_id,
                 })
 
-                if track_id != "N/A":
-                    seen_ids.setdefault(cls_name, set()).add(track_id)
+                summary[cls_name] = summary.get(cls_name, 0) + 1
                 confidence_sum += conf_val
                 detection_count += 1
 
@@ -115,13 +112,6 @@ def run_inference(video_path: str, conf: float = 0.25, max_frames: int = 120, pr
     cap.release()
     if writer is not None:
         writer.release()
-
-    # Reset tracker so IDs from this video don't carry into the next request
-    if hasattr(model, "predictor") and model.predictor is not None:
-        if hasattr(model.predictor, "trackers") and model.predictor.trackers:
-            model.predictor.trackers[0].reset()
-
-    summary = {cls: len(ids) for cls, ids in seen_ids.items()}
 
     elapsed_ms = int((time.time() - start_time) * 1000)
     avg_confidence = round(confidence_sum / detection_count, 4) if detection_count > 0 else 0.0
