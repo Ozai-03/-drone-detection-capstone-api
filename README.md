@@ -10,7 +10,7 @@ A production REST API and interactive Gradio demo for real-time object detection
 
 ## Overview
 
-Powered by **YOLOv8m** and **ByteTrack**, the model detects 9 object classes in aerial footage and assigns persistent IDs across frames — so a vehicle visible across 30 frames is counted once, not 30 times.
+Powered by **YOLOv8m** and **ByteTrack**, the model detects 3 object classes in aerial footage and assigns persistent IDs across frames — so a vehicle visible across 30 frames is counted once, not 30 times.
 
 **Detectable classes (label mapping):**
 
