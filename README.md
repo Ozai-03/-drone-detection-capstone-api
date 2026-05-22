@@ -9,31 +9,62 @@ pinned: false
 
 # Drone Detection API
 
-A production REST API and interactive demo for real-time object detection in aerial drone footage. Powered by **YOLOv8m** trained on the **VisDrone** and **UAVDT** datasets.
+A production REST API and interactive Gradio demo for real-time object detection in aerial drone footage, built as a capstone deployment project.
 
-The Gradio demo is available at the Space's main URL. The FastAPI endpoints are accessible at the paths below.
+**Live demo:** [huggingface.co/spaces/ozai-03/drone-detection-api](https://huggingface.co/spaces/ozai-03/drone-detection-api)  
+**Training repo:** [Ozai-03/drone-object-detection-capstone](https://github.com/Ozai-03/drone-object-detection-capstone)  
+**Model weights:** [ozai-03/yolov8m-drone-detection](https://huggingface.co/ozai-03/yolov8m-drone-detection)
 
 ---
 
-## API Endpoints
+## Overview
+
+Powered by **YOLOv8m** and **ByteTrack**, the model detects 9 object classes in aerial footage and assigns persistent IDs across frames — so a vehicle visible across 30 frames is counted once, not 30 times.
+
+**Detectable classes:** `car` · `pedestrian` · `truck` · `bus` · `van` · `motor` · `bicycle` · `awning-tricycle` · `tricycle`
+
+**Training data:**
+- [VisDrone](http://aiskyeye.com/) — large-scale aerial drone imagery dataset
+- [UAVDT](https://sites.google.com/view/grli-uavdt) — UAV benchmark for detection and tracking
+
+---
+
+## Architecture
+
+```
+gradio_app.py   — Gradio demo UI (port 7861)
+app.py          — FastAPI REST API (port 7860)
+inference.py    — YOLOv8m + ByteTrack inference engine
+Dockerfile      — Container definition for HF Spaces
+start.sh        — Starts both servers simultaneously
+```
+
+Model weights are stored on HF Hub and downloaded at startup — no large files in this repo.
+
+---
+
+## API Reference
 
 ### `POST /predict`
 
-Upload a video file and receive per-frame detection results.
+Upload a video and receive per-frame detection results with track IDs.
 
 **Query parameters:**
+
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `conf` | float | `0.25` | Confidence threshold (0.0–1.0) |
-| `max_frames` | int | `120` | Max frames to process (sampled at 1fps) |
+| `max_frames` | int | `120` | Max seconds of video to process |
 
-**Example request (curl):**
+**Example:**
+
 ```bash
 curl -X POST "https://huggingface.co/spaces/ozai-03/drone-detection-api/predict" \
   -F "video=@sample.mp4"
 ```
 
-**Example response:**
+**Response:**
+
 ```json
 {
   "model_version": "v1.0",
@@ -44,7 +75,7 @@ curl -X POST "https://huggingface.co/spaces/ozai-03/drone-detection-api/predict"
       "frame_id": 0,
       "timestamp_ms": 0,
       "detections": [
-        {"class": "car", "confidence": 0.87, "bbox": [120, 340, 280, 420]}
+        {"class": "car", "confidence": 0.87, "bbox": [120, 340, 280, 420], "track_id": 1}
       ]
     }
   ],
@@ -53,25 +84,13 @@ curl -X POST "https://huggingface.co/spaces/ozai-03/drone-detection-api/predict"
 }
 ```
 
----
-
 ### `GET /health`
 
-Returns server status and uptime.
-
 ```json
-{
-  "status": "ok",
-  "model_version": "v1.0",
-  "uptime_seconds": 312
-}
+{"status": "ok", "model_version": "v1.0", "uptime_seconds": 312}
 ```
 
----
-
 ### `GET /metrics`
-
-Returns aggregate statistics across all processed requests.
 
 ```json
 {
@@ -85,18 +104,20 @@ Returns aggregate statistics across all processed requests.
 
 ---
 
-## Model
+## Deployment
 
-- **Architecture:** YOLOv8m (medium)
-- **Training data:** VisDrone + UAVDT aerial drone datasets
-- **Detectable classes:** car, pedestrian, truck, bus, van, motor, bicycle, awning-tricycle, tricycle
-- **Weights:** [`ozai-03/yolov8m-drone-detection`](https://huggingface.co/ozai-03/yolov8m-drone-detection)
+This project is deployed on [Hugging Face Spaces](https://huggingface.co/spaces/ozai-03/drone-detection-api) using a Docker container. Both the FastAPI server and Gradio demo run simultaneously via `start.sh`.
 
----
-
-## Environment Variables
+**Environment variables:**
 
 | Variable | Default | Description |
 |---|---|---|
-| `MODEL_REPO` | `ozai-03/yolov8m-drone-detection` | HF Hub model repository |
-| `MODEL_VERSION` | `v1.0` | Model version string returned in responses |
+| `MODEL_REPO` | `ozai-03/yolov8m-drone-detection` | HF Hub model repo |
+| `MODEL_VERSION` | `v1.0` | Version string returned in API responses |
+
+---
+
+## Credits
+
+**Developed by:** Mathew Peguero  
+**Mentors:** Obumneme Stanley Dukor & David Adama
