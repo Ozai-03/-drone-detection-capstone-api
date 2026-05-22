@@ -36,40 +36,69 @@ def detect(video_path, conf, max_frames, progress=gr.Progress()):
 
 
 ABOUT_TEXT = """
-## About This Model
+## Drone Object Detection — YOLOv8m
 
-**Model:** YOLOv8m (medium variant)
+A real-time aerial object detection system trained on drone footage datasets. Upload a drone video and the model detects and tracks vehicles, pedestrians, and other objects across all frames.
 
-**Training data:**
-- [VisDrone](http://aiskyeye.com/) — aerial drone imagery dataset
+The tracker assigns **persistent IDs across frames** and returns **unique object counts per class** — so a vehicle visible across 30 frames is counted once, not 30 times.
+
+---
+
+### Model
+
+| | |
+|---|---|
+| **Architecture** | YOLOv8m (medium variant) |
+| **Tracker** | ByteTrack |
+| **Input** | Aerial / drone video |
+
+### Training Data
+
+- [VisDrone](http://aiskyeye.com/) — large-scale aerial drone imagery dataset
 - [UAVDT](https://sites.google.com/view/grli-uavdt) — UAV benchmark for detection and tracking
 
-**Classes detected:**
-`car`, `pedestrian`, `truck`, `bus`, `van`, `motor`, `bicycle`, `awning-tricycle`, `tricycle`
+### Detectable Classes
 
-**Use case:** Real-time object detection in aerial/drone footage for surveillance, traffic monitoring, and search-and-rescue scenarios.
+`car` · `pedestrian` · `truck` · `bus` · `van` · `motor` · `bicycle` · `awning-tricycle` · `tricycle`
+
+### Use Cases
+
+Traffic monitoring · Surveillance · Search-and-rescue
+
+---
+
+For training details, architecture notes, and dataset preprocessing steps visit the
+[project repository](https://github.com/Ozai-03/drone-object-detection-capstone).
+
+**Developed by:** Mathew Peguero
+**Mentors:** Obumneme Stanley Dukor & David Adama
 """
 
-with gr.Blocks(title="Drone Object Detection") as demo:
-    gr.Markdown("# Drone Object Detection\nYOLOv8m trained on VisDrone + UAVDT aerial datasets.")
+with gr.Blocks(title="Drone Object Detection", theme=gr.themes.Soft()) as demo:
+    gr.Markdown(
+        """
+# Drone Object Detection
+YOLOv8m + ByteTrack · Trained on VisDrone & UAVDT · Detects 9 object classes in aerial footage
+        """
+    )
 
     with gr.Tab("Try It"):
         with gr.Row():
-            with gr.Column():
-                video_input = gr.Video(label="Upload Drone Video")
+            with gr.Column(scale=1):
+                video_input = gr.Video(label="Input Video")
                 conf_slider = gr.Slider(0.1, 0.9, value=0.25, step=0.05, label="Confidence Threshold")
                 max_frames_slider = gr.Slider(60, 300, value=120, step=30, label="Max Duration (seconds)")
-                run_btn = gr.Button("Run Detection", variant="primary")
+                run_btn = gr.Button("Run Detection", variant="primary", size="lg")
 
-            with gr.Column():
+            with gr.Column(scale=1):
+                output_video = gr.Video(label="Annotated Output", interactive=False)
                 output_table = gr.Dataframe(
                     headers=["Class", "Count"],
-                    label="Detection Summary",
+                    label="Unique Objects Detected",
                     interactive=False,
                 )
                 stats_text = gr.Textbox(label="Stats", interactive=False)
-                frames_text = gr.Textbox(label="Frames", interactive=False)
-                output_video = gr.Video(label="Annotated Output", interactive=False)
+                frames_text = gr.Textbox(label="Frames Processed", interactive=False)
 
         run_btn.click(
             fn=detect,
