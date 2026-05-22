@@ -1,12 +1,3 @@
----
-title: Drone Detection API
-emoji: 🚁
-colorFrom: blue
-colorTo: indigo
-sdk: docker
-pinned: false
----
-
 # Drone Detection API
 
 A production REST API and interactive Gradio demo for real-time object detection in aerial drone footage, built as a capstone deployment project.
