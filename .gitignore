@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+.env.*
+
+# Model weights (large files — stored on HF Hub, not in git)
+*.pt
+*.pth
+*.onnx
+
+# Generated inference output videos
+*_annotated.mp4
+
+# Logs
+*.log
+*.jsonl
+
+# Claude Code local files
+.claude/
+claude_code_deployment_prompt.md
+
+# OS
+.DS_Store
+Thumbs.db
