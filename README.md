@@ -12,7 +12,11 @@ A production REST API and interactive Gradio demo for real-time object detection
 
 Powered by **YOLOv8m** and **ByteTrack**, the model detects 9 object classes in aerial footage and assigns persistent IDs across frames — so a vehicle visible across 30 frames is counted once, not 30 times.
 
-**Detectable classes:** `car` · `pedestrian` · `truck` · `bus` · `van` · `motor` · `bicycle` · `awning-tricycle` · `tricycle`
+**Detectable classes (label mapping):**
+
+- `0`: person
+- `1`: vehicle
+- `2`: 2-wheeler
 
 **Training data:**
 - [VisDrone](http://aiskyeye.com/) — large-scale aerial drone imagery dataset
