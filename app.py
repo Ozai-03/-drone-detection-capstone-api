@@ -1,13 +1,14 @@
 import os
 import json
 import time
+import uuid
 import tempfile
 import traceback
 from datetime import datetime
 
 from fastapi import FastAPI, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 
 import gradio as gr
 from gradio_app import demo as gradio_demo
@@ -15,6 +16,9 @@ from inference import run_inference, MODEL_VERSION
 
 START_TIME = time.time()
 LOG_PATH = "/data/request_log.jsonl"
+
+# In-memory store mapping video tokens to temp file paths
+_video_store: dict[str, str] = {}
 
 app = FastAPI(title="Drone Detection API")
 
@@ -35,15 +39,11 @@ def _append_log(entry: dict):
         print(f"[WARNING] Could not write to log: {e}")
 
 
-# API routes must be registered before the Gradio mount so Starlette
-# matches them first — Mount("/") is a catch-all that would otherwise
-# intercept /health and /predict.
-
 @app.post("/predict")
 async def predict(
     video: UploadFile = File(...),
     conf: float = Query(default=0.25, ge=0.0, le=1.0),
-    max_frames: int = Query(default=120, ge=1, le=500),
+    max_frames: int = Query(default=1800, ge=1, le=3600),
 ):
     tmp_path = None
     status = "success"
@@ -53,7 +53,13 @@ async def predict(
             tmp.write(await video.read())
             tmp_path = tmp.name
 
-        result = run_inference(tmp_path, conf=conf, max_frames=max_frames)
+        result = run_inference(tmp_path, conf=conf, max_frames=max_frames, annotate=True)
+
+        # Store annotated video and return a token
+        video_token = str(uuid.uuid4())
+        if result.get("output_video_path") and os.path.exists(result["output_video_path"]):
+            _video_store[video_token] = result.pop("output_video_path")
+            result["video_token"] = video_token
 
         _append_log({
             "timestamp": datetime.utcnow().isoformat(),
@@ -84,6 +90,27 @@ async def predict(
                 os.remove(tmp_path)
             except Exception:
                 pass
+
+
+@app.get("/video/{token}")
+async def get_video(token: str):
+    path = _video_store.get(token)
+    if not path or not os.path.exists(path):
+        return JSONResponse(status_code=404, content={"error": "video not found or expired"})
+
+    def cleanup():
+        try:
+            os.remove(path)
+            _video_store.pop(token, None)
+        except Exception:
+            pass
+
+    return FileResponse(
+        path,
+        media_type="video/mp4",
+        filename="annotated.mp4",
+        background=cleanup
+    )
 
 
 @app.get("/health")
@@ -133,5 +160,4 @@ def metrics():
 
 
 # Mount Gradio at "/" AFTER all API routes are registered.
-# Starlette matches explicit APIRoutes before Mount catch-alls.
 gr.mount_gradio_app(app, gradio_demo, path="/")
